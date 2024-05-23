@@ -109,21 +109,6 @@ def Scatter_Violin_Plots(X, Y, y, Xlable1, Ylable1, Ylable2, Modelname1, Modelna
     fig.suptitle(f'{title}', size=36, x= 0.5)
     plt.show()
 
-def Hbar(A, Title, fc):
-    fig, axs = plt.subplots(1, 1, figsize=(6, 6), constrained_layout=True)
-    A.plot.barh( color=f'{fc}', edgecolor='k', alpha=0.8,  width = 0.8) 
-    axs.set_title(f'{Title}', size=18)
-    axs.set_ylabel("Features", size= 14)
-    axs.set_xlabel("Importance (%)", size= 14)
-    axs.tick_params(labelsize=14)
-    axs.set_facecolor("#F0F0F0")
-    axs.set_xlim([0, 100])
-    axs.bar_label(axs.containers[0], label_type='edge', size=11, padding=3)
-    axs.yaxis.grid(False)
-    axs.xaxis.grid(True)
-    plt.show()
-
-    
 def Merge_Multiple_Files(dfs, on_what):
     df_Final = dfs[0]
     for df in dfs[1:len(dfs)]: 
