@@ -17,6 +17,19 @@ plt.rcParams.update({
     #'font.family': 'serif'
 })
 
+def Read_Multiple_Files(directory, fileFormat):
+    dfs = []
+    for file in os.listdir(directory):
+        if file.endswith(fileFormat):
+            file_path = os.path.join(directory, file)
+            df = pd.read_csv(file_path, low_memory= False)
+            columns_to_rename = {'NODATA':f'NODATA_{os.path.splitext(file)[0]}', 'TOT_NODATA':f'TOT_NODATA_{os.path.splitext(file)[0]}', 'ACC_NODATA':f'ACC_NODATA_{os.path.splitext(file)[0]}', 'CAT_NODATA':f'CAT_NODATA_{os.path.splitext(file)[0]}'}
+            for col in columns_to_rename:
+                if col in df.columns:
+                    df.rename(columns={col: columns_to_rename[col]}, inplace=True)
+            dfs.append(df) 
+    return dfs
+
 
 def Performance_metrics(X, Y, YesorNo):
     X = np.array(X).reshape(-1,)
