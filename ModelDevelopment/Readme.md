@@ -1,6 +1,5 @@
 # Dataset Utilized for Model Developement 
 
-* __The datasets utilized for model developement, named _df_Train_ and _df_Test_ are publicly available in [Google Drive]().__
 
 __Table 1.__ _Dataset and attributes used for model development._
 
