@@ -18,4 +18,4 @@ __Figure 3.__ _Map of predicted values of mean-flow width in meter over CONtiguo
 __Figure 4.__ _Map of predicted values of mean-flow depth in meter over CONtiguous United States (CONUS) for reaches/streams in the National Hydrography Dataset Plus Version 2.1 (NHDplusv2.1) with drainage area greater than 100 km<sup>2</sup>.
 
 # Download Dataset
-The final predicted dataset resulting from this research encompasses values of predicted width and depth under both mean-flow and bankfull conditions for 2,642,259 reaches in NHDPlusV2.1. This dataset, namely _Bankfull_Meanflow_CONUS_ is publicly available at [Zenodo](https://zenodo.org/records/13883263) and [HydroShare] (https://www.hydroshare.org/resource/63ae139ccd2445959470d0e5a2ebf6a5).
+The final predicted dataset resulting from this research encompasses values of predicted width and depth under both mean-flow and bankfull conditions for 2,642,259 reaches in NHDPlusV2.1. This dataset, namely _Bankfull_Meanflow_CONUS_ is publicly available at [Zenodo](https://zenodo.org/records/13883263) and [HydroShare](https://www.hydroshare.org/resource/63ae139ccd2445959470d0e5a2ebf6a5).
