@@ -3,7 +3,7 @@
 This GitHub repository represents the outcomes, datasets, codes, and script of "Bankfull and Mean-flow Channel Geometry Estimation Through Machine Learning  Algorithms Across the CONtiguoud United States (CONUS)" research project.
 
 
-![AGU2024_RZ1.pdf](https://github.com/user-attachments/files/18695668/AGU2024_RZ1.pdf)
+![AGU2024_RZ](https://github.com/user-attachments/assets/d62366eb-4519-42bb-83fc-fefecf298a70)
 
 
 <div align="center">
