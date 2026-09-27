@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../assets/logo.png" alt="River-Channel Geometry Dataset logo" width="220">
+</p>
+
 # Data API
 
 A web API that serves ML-derived bankfull and mean-flow channel geometry for

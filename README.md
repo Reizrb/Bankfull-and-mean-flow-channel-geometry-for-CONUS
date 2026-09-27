@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="River-Channel Geometry Dataset logo" width="300">
+</p>
+
 # Bankfull and Mean-flow Channel Geometry Estimation for CONtiguous United States (CONUS)
 
 This GitHub repository represents the outcomes, datasets, codes, and script of "Bankfull and Mean-flow Channel Geometry Estimation Through Machine Learning  Algorithms Across the CONtiguous United States (CONUS)" research project. 
