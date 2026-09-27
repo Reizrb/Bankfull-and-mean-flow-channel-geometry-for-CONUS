@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="../assets/logo.png" alt="River-Channel Geometry Dataset logo" width="220">
-</p>
+<img src="../assets/banner.png" alt="Bankfull and Mean-flow Channel Geometry for CONUS" width="100%">
 
 # Data API
 
