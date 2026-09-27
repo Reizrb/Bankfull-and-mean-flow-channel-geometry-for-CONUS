@@ -14,6 +14,11 @@ Both outputs share one schema convention:
 
 Run:  python prepare_data.py gage     -> builds gages.parquet
       python prepare_data.py reach    -> builds reaches.parquet (takes a while)
+      python prepare_data.py sort     -> re-sorts existing files by HUC8 (a few minutes)
+
+Both builds finish by sorting the file by HUC8, so each basin's records sit
+together. That lets a request for one HUC8, state, or polygon read only a small
+part of the file when it is stored online (Hugging Face / S3).
 """
 from pathlib import Path
 
@@ -60,6 +65,26 @@ def _add_wkb_and_bbox(df, geoms):
     return df
 
 
+# ---------------------------------------------------------------- sorting
+def sort_by_huc(path, row_group_size=20_000):
+    """Rewrite a parquet file ordered by huc8 (then its id), in small row groups."""
+    import duckdb
+    p = Path(path)
+    if not p.exists():
+        print(f"  skipping {p.name}: not found")
+        return
+    idc = "site_no" if "gage" in p.name else "comid"
+    tmp = p.with_suffix(".sorted.parquet")
+    con = duckdb.connect()
+    con.execute("SET preserve_insertion_order = false")
+    con.execute(f"""COPY (SELECT * FROM read_parquet('{p}') ORDER BY huc8 NULLS LAST, {idc})
+                    TO '{tmp}' (FORMAT PARQUET, COMPRESSION ZSTD,
+                                ROW_GROUP_SIZE {row_group_size})""")
+    con.close()
+    tmp.replace(p)
+    print(f"  sorted {p.name} by HUC8 ({p.stat().st_size / 1e6:,.0f} MB)")
+
+
 # ---------------------------------------------------------------- gage
 def build_gages():
     import shapely
@@ -93,6 +118,7 @@ def build_gages():
     print(f"  without a state tag: {df['state'].isna().sum():,}")
     print(f"  without channel geometry values: {df['bnk_width'].isna().sum():,}")
     print(f"  states: {', '.join(sorted(df['state'].dropna().unique()))}")
+    sort_by_huc("gages.parquet", row_group_size=5_000)
 
 
 # ---------------------------------------------------------------- reach
@@ -180,11 +206,16 @@ def build_reaches():
     size_mb = Path(out).stat().st_size / 1e6
     print(f"wrote {out}: {n_done:,} reaches, {size_mb:,.0f} MB")
     print(f"  without a state tag (more than 5 km outside any state): {no_state:,}")
+    sort_by_huc(out)
 
 
 if __name__ == "__main__":
     import sys
     choice = sys.argv[1] if len(sys.argv) > 1 else ""
-    if choice not in ("gage", "reach"):
-        raise SystemExit("Usage: python prepare_data.py gage   OR   python prepare_data.py reach")
-    {"gage": build_gages, "reach": build_reaches}[choice]()
+    if choice not in ("gage", "reach", "sort"):
+        raise SystemExit("Usage: python prepare_data.py gage | reach | sort")
+    if choice == "sort":
+        sort_by_huc("reaches.parquet")
+        sort_by_huc("gages.parquet", row_group_size=5_000)
+    else:
+        {"gage": build_gages, "reach": build_reaches}[choice]()

@@ -11,7 +11,7 @@ import duckdb
 import geopandas as gpd
 from shapely.geometry import box, mapping
 from fastapi.testclient import TestClient
-from app import app, DATASETS, MAX_SYNC_ROWS
+from app import app, DATASETS, MAX_SYNC_ROWS, _available
 
 c = TestClient(app)
 ok_count, fail_count = 0, 0
@@ -44,7 +44,7 @@ def pick(ds):
 print("health:", c.get("/health").json(), "\n")
 
 for ds in ["reach", "gage"]:
-    if not DATASETS[ds]["path"].exists():
+    if not _available(DATASETS[ds]):
         print(f"(skipping {ds}: file not built)\n"); continue
     v = pick(ds)
     name = "gages" if ds == "gage" else "reaches"

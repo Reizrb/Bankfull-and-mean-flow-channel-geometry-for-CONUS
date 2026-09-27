@@ -26,6 +26,7 @@ Design notes
 """
 import io
 import json
+import os
 import tempfile
 import zipfile
 from pathlib import Path
@@ -42,6 +43,21 @@ from shapely.geometry import shape
 
 # ------------------------------------------------------------------ config
 HERE = Path(__file__).parent
+
+# Where the data files live. By default the API uses local copies if they are in
+# this folder, and otherwise reads them straight from the Hugging Face dataset.
+# Set CG_DATA_URL to another base address (e.g. an S3 bucket) to switch storage.
+REMOTE_BASE = os.environ.get(
+    "CG_DATA_URL",
+    "https://huggingface.co/datasets/Reizrb/bankfull-meanflow-conus/resolve/main")
+
+
+def _data_path(filename: str) -> str:
+    local = HERE / filename
+    if local.exists() and not os.environ.get("CG_DATA_URL"):
+        return str(local)
+    return f"{REMOTE_BASE.rstrip('/')}/{filename}"
+
 DATASET_CRS = "EPSG:4269"      # NAD83, the NHDPlusV2.1 CRS (both files are built in it)
 MAX_SYNC_ROWS = 50_000         # above this, refuse sync return (use prebuilt/async)
 GEOM_ATTRS = ["bnk_width", "bnk_depth", "mf_width", "mf_depth"]
@@ -49,13 +65,13 @@ GEOM_ATTRS = ["bnk_width", "bnk_depth", "mf_width", "mf_depth"]
 # One entry per dataset. `id_col` is what request_type="ids" matches against.
 DATASETS = {
     "reach": {
-        "path": HERE / "reaches.parquet",
+        "path": _data_path("reaches.parquet"),
         "id_col": "comid", "id_type": int,
         "cols": ["comid", "reachcode", "state", "huc2", "huc8", "stream_order",
                  "tot_da_sqkm"] + GEOM_ATTRS,
     },
     "gage": {
-        "path": HERE / "gages.parquet",
+        "path": _data_path("gages.parquet"),
         "id_col": "site_no", "id_type": str,   # text, so leading zeros survive
         "cols": ["site_no", "station_nm", "comid", "reachcode", "state", "huc2",
                  "huc8", "da_sqkm", "lat", "lon"] + GEOM_ATTRS,
@@ -67,9 +83,14 @@ def _ds(name: str) -> dict:
     ds = DATASETS.get(name.lower())
     if ds is None:
         raise HTTPException(400, f"Unknown dataset '{name}'. Use reach or gage.")
-    if not ds["path"].exists():
-        raise HTTPException(503, f"The {name} dataset is not loaded on this server.")
+    if not _available(ds):
+        raise HTTPException(503, f"The {name} dataset is not available on this server.")
     return ds
+
+
+def _available(ds: dict) -> bool:
+    p = ds["path"]
+    return p.startswith("http") or Path(p).exists()
 
 app = FastAPI(title="Channel Geometry API", version="0.2.0")
 # allow the browser map/menu frontend to call this API
@@ -268,9 +289,11 @@ async def extract_shapefile(
 def health():
     counts = {}
     for name, ds in DATASETS.items():
-        if ds["path"].exists():
+        if _available(ds):
             counts[name] = con().execute(
                 f"SELECT count(*) FROM read_parquet('{ds['path']}')").fetchone()[0]
         else:
             counts[name] = "not loaded"
-    return {"status": "ok", "records": counts, "dataset_crs": DATASET_CRS}
+    source = "local files" if not DATASETS["reach"]["path"].startswith("http") else REMOTE_BASE
+    return {"status": "ok", "records": counts, "data_source": source,
+            "dataset_crs": DATASET_CRS}
