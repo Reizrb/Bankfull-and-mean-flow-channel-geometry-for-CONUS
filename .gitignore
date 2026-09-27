@@ -1,0 +1,22 @@
+# Python environment and caches
+venv/
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Large data files used by the Data API (get them from Zenodo and
+# build with DataAPI/prepare_data.py)
+DataAPI/*.parquet
+DataAPI/*.shp
+DataAPI/*.shx
+DataAPI/*.dbf
+DataAPI/*.prj
+DataAPI/*.cpg
+DataAPI/*.qmd
+DataAPI/*.xml
+DataAPI/*.csv
+DataAPI/*.zip
+
+# macOS
+.DS_Store
