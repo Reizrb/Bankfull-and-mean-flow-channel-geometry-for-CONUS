@@ -487,12 +487,20 @@ hydro.addTo(map);
 L.control.layers(basemaps, { "Rivers and lakes (NHD)": hydro }, { position: "topright" }).addTo(map);
 
 const drawn = new L.FeatureGroup().addTo(map);
+// Line width grows linearly with stream order: order 1 -> 0.4 px ... order 9 -> 4 px
+// (the same 1:10 ratio as 0.1 -> 1). Unknown order draws as the thinnest line.
+const MIN_W = 0.4, MAX_W = 4.0;
+function orderWidth(order) {
+  const o = Math.min(Math.max(Number(order) || 1, 1), 9);
+  return MIN_W + (o - 1) / 8 * (MAX_W - MIN_W);
+}
 const results = L.geoJSON(null, {
-  style: { color: "#2B6F97", weight: 2.2 },
-  pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 5, color: "#2B4263", fillColor: "#CBBE7F", fillOpacity: 0.9, weight: 1.5 }),
+  style: (f) => ({ color: "#2B6F97", weight: orderWidth(f.properties.stream_order), opacity: 0.9, lineCap: "round" }),
+  pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4.5, color: "#FFFFFF", fillColor: "#E4572E", fillOpacity: 1, weight: 1.3 }),
   onEachFeature: (f, layer) => {
     const p = f.properties, fmt = v => (v == null || Number.isNaN(v)) ? "no prediction" : `${(+v).toFixed(2)} m`;
-    const id = p.site_no ? `Gage ${p.site_no}<br>${p.station_nm || ""}` : `COMID ${p.comid}`;
+    const id = p.site_no ? `Gage ${p.site_no}<br>${p.station_nm || ""}`
+                         : `COMID ${p.comid}<br>Stream order ${p.stream_order ?? "unknown"}`;
     layer.bindPopup(`<strong>${id}</strong><br>Bankfull width: ${fmt(p.bnk_width)}<br>Bankfull depth: ${fmt(p.bnk_depth)}` +
                     `<br>Mean-flow width: ${fmt(p.mf_width)}<br>Mean-flow depth: ${fmt(p.mf_depth)}`);
   }
@@ -635,6 +643,8 @@ $("show").addEventListener("click", async () => {
     const r = await send("geojson");
     if (!r.ok) throw new Error(await readError(r));
     const gj = await r.json();
+    // draw small streams first so the big rivers sit on top of them
+    gj.features.sort((a, b) => (a.properties.stream_order || 0) - (b.properties.stream_order || 0));
     results.clearLayers(); results.addData(gj);
     if (results.getLayers().length) map.fitBounds(results.getBounds(), { padding: [30, 30] });
     note(`${gj.features.length.toLocaleString()} ${dataset() === "reach" ? "reaches" : "gages"} shown. Click one for its width and depth.`);

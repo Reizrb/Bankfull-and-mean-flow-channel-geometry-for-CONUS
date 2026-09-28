@@ -85,10 +85,10 @@ for ds in ["reach", "gage"]:
                       ("conus", {})]:
         r = post({"request_type": rt, "format": "csv", **extra})
         good = r.status_code == 200 or (r.status_code == 413 and
-                                        "huc2_downloads" in r.json()["detail"])
+                                        "full_dataset" in r.json()["detail"])
         note = (f"rows={rows(r)}" if r.status_code == 200 else
-                f"413: over {MAX_SYNC_ROWS:,} limit, points to "
-                f"{len(r.json()['detail']['huc2_downloads'])} HUC2 download(s)")
+                f"413: {r.json()['detail']['records']:,} records, over the "
+                f"{MAX_SYNC_ROWS:,} limit (expected for big areas)")
         check(f"{rt} -> csv", good, note)
 
     check("filename", post({"request_type": "ids", "ids": v["ids"], "format": "csv"})
