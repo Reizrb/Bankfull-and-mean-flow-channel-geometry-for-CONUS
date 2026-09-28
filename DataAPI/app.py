@@ -25,6 +25,7 @@ Design notes
   static downloads or an async job queue (see the guard for where to branch).
 """
 import io
+import shutil
 import json
 import os
 import tempfile
@@ -38,6 +39,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.background import BackgroundTask
 from pydantic import BaseModel, Field
 from shapely import from_wkb
 from shapely.geometry import shape
@@ -120,10 +122,43 @@ def home():
     return {"message": "Channel Geometry API. See /docs."}
 
 
+# One shared DuckDB database for the whole app, so what it learns about the data
+# files (their layout, which parts hold which HUCs) is cached between requests
+# instead of being downloaded again from Hugging Face every time.
+_DB = duckdb.connect()
+_DB.execute("PRAGMA threads=1")      # the free server has a tenth of a CPU; leave room for /health
+_DB.execute("SET memory_limit = '256MB'")        # the free server has 512 MB in total
+_DB.execute(f"SET temp_directory = '{tempfile.gettempdir()}/duckdb_spill'")
+for _setting in ("SET enable_object_cache = true",
+                 "SET enable_http_metadata_cache = true"):
+    try:
+        _DB.execute(_setting)
+    except Exception:          # older/newer DuckDB versions may not have both
+        pass
+
+
+def _load_spatial(db):
+    """DuckDB's spatial extension: geometry tests and GeoJSON/shapefile writing inside
+    DuckDB, so large results never have to be held in Python memory."""
+    try:
+        db.execute("LOAD spatial"); return
+    except Exception:
+        pass
+    try:                                   # pip package duckdb-extension-spatial
+        import duckdb_extension_spatial as pkg
+        ext = next(Path(pkg.__file__).parent.rglob("spatial.duckdb_extension"))
+        db.execute(f"LOAD '{ext}'"); return
+    except Exception:
+        pass
+    db.execute("INSTALL spatial"); db.execute("LOAD spatial")
+
+
+_load_spatial(_DB)
+
+
 def con():
-    c = duckdb.connect()
-    c.execute("PRAGMA threads=4")
-    return c
+    """A cursor on the shared database (safe to use from several requests at once)."""
+    return _DB.cursor()
 
 
 # ------------------------------------------------------------------ request model
@@ -152,40 +187,21 @@ def _check_size(ds: dict, where_sql: str, params: list):
         raise TooBig(n, [h for h in huc2s if h])
 
 
-def _fetch_by_filter(ds: dict, where_sql: str, params: list) -> gpd.GeoDataFrame:
-    """Run an attribute/id filter and return a GeoDataFrame."""
+def _fetch_by_filter(ds: dict, where_sql: str, params: list) -> tuple:
+    """Check the size, then return the query (WHERE clause + parameters) to export."""
     _check_size(ds, where_sql, params)
-    cols = ", ".join(ds["cols"] + ["geom_wkb"])
-    sql = f"SELECT {cols} FROM read_parquet('{ds['path']}')"
-    if where_sql:
-        sql += f" WHERE {where_sql}"
-    df = con().execute(sql, params).fetch_df()
-    return _to_gdf(df)
+    return (where_sql, list(params))
 
 
-def _fetch_by_polygon(ds: dict, geom) -> gpd.GeoDataFrame:
-    """Two-step: DuckDB bbox pre-filter, then precise shapely intersection.
-    Rows with no geometry have NULL bbox columns, so they drop out here."""
+def _fetch_by_polygon(ds: dict, geom) -> tuple:
+    """Bounding-box pre-filter (cheap, uses the precomputed corner columns), then an
+    exact intersection test, both done inside DuckDB."""
     minx, miny, maxx, maxy = geom.bounds
-    _check_size(ds, "minx <= ? AND maxx >= ? AND miny <= ? AND maxy >= ?",
-                [maxx, minx, maxy, miny])
-    cols = ", ".join(ds["cols"] + ["geom_wkb"])
-    # bbox overlap test using the precomputed corner columns
-    sql = (f"SELECT {cols} FROM read_parquet('{ds['path']}') "
-           f"WHERE minx <= ? AND maxx >= ? AND miny <= ? AND maxy >= ?")
-    df = con().execute(sql, [maxx, minx, maxy, miny]).fetch_df()
-    gdf = _to_gdf(df)
-    if gdf.empty:
-        return gdf
-    return gdf[gdf.intersects(geom)].reset_index(drop=True)
-
-
-def _to_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
-    # DuckDB returns BLOB as bytearray; shapely.from_wkb wants bytes.
-    # Some gages have no coordinates -> NULL blob -> empty geometry.
-    geom = from_wkb([None if b is None or b is pd.NA else bytes(b)
-                     for b in df.pop("geom_wkb").values])
-    return gpd.GeoDataFrame(df, geometry=geom, crs=DATASET_CRS)
+    bbox = "minx <= ? AND maxx >= ? AND miny <= ? AND maxy >= ?"
+    bparams = [maxx, minx, maxy, miny]
+    _check_size(ds, bbox, bparams)
+    where = bbox + " AND ST_Intersects(ST_GeomFromWKB(geom_wkb), ST_GeomFromText(?))"
+    return (where, bparams + [geom.wkt])
 
 
 def _user_polygon_to_dataset_crs(geojson_geom: dict):
@@ -196,36 +212,49 @@ def _user_polygon_to_dataset_crs(geojson_geom: dict):
 
 
 # ------------------------------------------------------------------ formatting
-def _stream(gdf: gpd.GeoDataFrame, fmt: str, name: str = "reaches") -> StreamingResponse:
+def _stream(ds: dict, query: tuple, fmt: str, name: str = "reaches"):
+    """Write the result straight to a file with DuckDB (low memory), then send it."""
+    where_sql, params = query
     fmt = fmt.lower()
-    if fmt == "csv":
-        out = gdf.copy()
-        out["geometry_wkt"] = out.geometry.to_wkt()   # keep geometry, as WKT
-        buf = io.StringIO()
-        out.drop(columns="geometry").to_csv(buf, index=False)
-        return StreamingResponse(
-            io.BytesIO(buf.getvalue().encode()), media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename={name}.csv"})
-
-    if fmt == "geojson":
-        return StreamingResponse(
-            io.BytesIO(gdf.to_json().encode()), media_type="application/geo+json",
-            headers={"Content-Disposition": f"attachment; filename={name}.geojson"})
-
-    if fmt == "shapefile":
-        with tempfile.TemporaryDirectory() as td:
-            shp = Path(td) / f"{name}.shp"
-            gdf.to_file(shp, driver="ESRI Shapefile")  # writes .shp/.shx/.dbf/.prj
-            zbuf = io.BytesIO()
-            with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_DEFLATED) as z:
-                for f in Path(td).glob(f"{name}.*"):
+    cols = ", ".join(ds["cols"])
+    where = f" WHERE {where_sql}" if where_sql else ""
+    src = f"FROM read_parquet('{ds['path']}'){where}"
+    td = tempfile.mkdtemp(prefix="cg_")
+    cleanup = BackgroundTask(shutil.rmtree, td, ignore_errors=True)
+    try:
+        if fmt == "csv":
+            out = Path(td) / f"{name}.csv"
+            n = con().execute(
+                f"COPY (SELECT {cols}, ST_AsText(ST_ReducePrecision(ST_GeomFromWKB(geom_wkb), 0.000001)) AS geometry_wkt {src}) "
+                f"TO '{out}' (FORMAT CSV, HEADER)", params).fetchone()[0]
+            media = "text/csv"
+        elif fmt == "geojson":
+            out = Path(td) / f"{name}.geojson"
+            n = con().execute(
+                f"COPY (SELECT {cols}, ST_GeomFromWKB(geom_wkb) AS geom {src}) "
+                f"TO '{out}' (FORMAT GDAL, DRIVER 'GeoJSON', SRS 'EPSG:4269', "
+                f"LAYER_CREATION_OPTIONS 'COORDINATE_PRECISION=6')", params).fetchone()[0]
+            media = "application/geo+json"
+        elif fmt == "shapefile":
+            shp_dir = Path(td) / "shp"; shp_dir.mkdir()
+            n = con().execute(
+                f"COPY (SELECT {cols}, ST_GeomFromWKB(geom_wkb) AS geom {src}) "
+                f"TO '{shp_dir / (name + '.shp')}' (FORMAT GDAL, DRIVER 'ESRI Shapefile', "
+                f"SRS 'EPSG:4269')", params).fetchone()[0]
+            out = Path(td) / f"{name}.zip"
+            with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+                for f in shp_dir.glob(f"{name}.*"):
                     z.write(f, f.name)
-            zbuf.seek(0)
-            return StreamingResponse(
-                zbuf, media_type="application/zip",
-                headers={"Content-Disposition": f"attachment; filename={name}.zip"})
-
-    raise HTTPException(400, f"Unknown format '{fmt}'. Use csv, shapefile, or geojson.")
+            media = "application/zip"
+        else:
+            raise HTTPException(400, f"Unknown format '{fmt}'. Use csv, shapefile, or geojson.")
+    except Exception:
+        shutil.rmtree(td, ignore_errors=True)
+        raise
+    if not n:
+        shutil.rmtree(td, ignore_errors=True)
+        raise HTTPException(404, "No records matched the query.")
+    return FileResponse(out, media_type=media, filename=out.name, background=cleanup)
 
 
 # ------------------------------------------------------------------ endpoints
@@ -289,9 +318,7 @@ def _extract(req: ExtractRequest):
     else:
         raise HTTPException(400, f"Unknown request_type '{req.request_type}'")
 
-    if gdf.empty:
-        raise HTTPException(404, "No records matched the query.")
-    return _stream(gdf, req.format, _outname(req.dataset))
+    return _stream(ds, gdf, req.format, _outname(req.dataset))
 
 
 def _check_format(fmt: str):
@@ -335,20 +362,28 @@ async def extract_shapefile(
         gdf = _fetch_by_polygon(ds, geom)
     except TooBig as err:
         raise _too_big(err, "This polygon")
-    if gdf.empty:
-        raise HTTPException(404, "No records intersected the uploaded polygon.")
-    return _stream(gdf, format, _outname(dataset))
+    return _stream(ds, gdf, format, _outname(dataset))
+
+
+_COUNTS: dict = {}
 
 
 @app.get("/health")
-def health():
-    counts = {}
-    for name, ds in DATASETS.items():
-        if _available(ds):
-            counts[name] = con().execute(
-                f"SELECT count(*) FROM read_parquet('{ds['path']}')").fetchone()[0]
-        else:
-            counts[name] = "not loaded"
+async def health():
+    """Fast check used by the host: answers immediately, without reading the data."""
+    return {"status": "ok"}
+
+
+@app.get("/status")
+def status():
+    """Record counts and data source (reads the file footers once, then cached)."""
+    if not _COUNTS:
+        for name, ds in DATASETS.items():
+            if _available(ds):
+                _COUNTS[name] = con().execute(
+                    f"SELECT count(*) FROM read_parquet('{ds['path']}')").fetchone()[0]
+            else:
+                _COUNTS[name] = "not loaded"
     source = "local files" if not DATASETS["reach"]["path"].startswith("http") else REMOTE_BASE
-    return {"status": "ok", "records": counts, "data_source": source,
+    return {"status": "ok", "records": _COUNTS, "data_source": source,
             "dataset_crs": DATASET_CRS}

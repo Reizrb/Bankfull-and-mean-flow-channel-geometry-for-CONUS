@@ -6,7 +6,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
- && python -c "import duckdb; duckdb.sql('INSTALL httpfs')"
+ && python -c "import duckdb; duckdb.sql('INSTALL httpfs'); duckdb.sql('INSTALL spatial')"
 
 COPY app.py .
 COPY static ./static
