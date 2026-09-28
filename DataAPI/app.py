@@ -36,7 +36,8 @@ import geopandas as gpd
 import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from shapely import from_wkb
 from shapely.geometry import shape
@@ -59,7 +60,14 @@ def _data_path(filename: str) -> str:
     return f"{REMOTE_BASE.rstrip('/')}/{filename}"
 
 DATASET_CRS = "EPSG:4269"      # NAD83, the NHDPlusV2.1 CRS (both files are built in it)
-MAX_SYNC_ROWS = 50_000         # above this, refuse sync return (use prebuilt/async)
+MAX_SYNC_ROWS = 50_000         # above this, point users to prebuilt downloads instead
+ZENODO_URL = "https://zenodo.org/records/19208847"
+
+
+class TooBig(Exception):
+    """Raised before any geometry is loaded when a request is over MAX_SYNC_ROWS."""
+    def __init__(self, n, huc2s):
+        self.n, self.huc2s = n, huc2s
 GEOM_ATTRS = ["bnk_width", "bnk_depth", "mf_width", "mf_depth"]
 
 # One entry per dataset. `id_col` is what request_type="ids" matches against.
@@ -98,6 +106,20 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                    allow_headers=["*"])
 
 
+STATIC = HERE / "static"
+if STATIC.exists():
+    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def home():
+    """The web page (menu + map) for people who don't want to write code."""
+    page = STATIC / "index.html"
+    if page.exists():
+        return FileResponse(page)
+    return {"message": "Channel Geometry API. See /docs."}
+
+
 def con():
     c = duckdb.connect()
     c.execute("PRAGMA threads=4")
@@ -119,8 +141,20 @@ class ExtractRequest(BaseModel):
 
 
 # ------------------------------------------------------------------ query helpers
+def _check_size(ds: dict, where_sql: str, params: list):
+    """Count matches first (cheap: no geometry is read) and stop oversized requests
+    before they use up the server's memory."""
+    where = f" WHERE {where_sql}" if where_sql else ""
+    n, huc2s = con().execute(
+        f"SELECT count(*), list(DISTINCT huc2 ORDER BY huc2) "
+        f"FROM read_parquet('{ds['path']}'){where}", params).fetchone()
+    if n > MAX_SYNC_ROWS:
+        raise TooBig(n, [h for h in huc2s if h])
+
+
 def _fetch_by_filter(ds: dict, where_sql: str, params: list) -> gpd.GeoDataFrame:
     """Run an attribute/id filter and return a GeoDataFrame."""
+    _check_size(ds, where_sql, params)
     cols = ", ".join(ds["cols"] + ["geom_wkb"])
     sql = f"SELECT {cols} FROM read_parquet('{ds['path']}')"
     if where_sql:
@@ -133,6 +167,8 @@ def _fetch_by_polygon(ds: dict, geom) -> gpd.GeoDataFrame:
     """Two-step: DuckDB bbox pre-filter, then precise shapely intersection.
     Rows with no geometry have NULL bbox columns, so they drop out here."""
     minx, miny, maxx, maxy = geom.bounds
+    _check_size(ds, "minx <= ? AND maxx >= ? AND miny <= ? AND maxy >= ?",
+                [maxx, minx, maxy, miny])
     cols = ", ".join(ds["cols"] + ["geom_wkb"])
     # bbox overlap test using the precomputed corner columns
     sql = (f"SELECT {cols} FROM read_parquet('{ds['path']}') "
@@ -161,12 +197,6 @@ def _user_polygon_to_dataset_crs(geojson_geom: dict):
 
 # ------------------------------------------------------------------ formatting
 def _stream(gdf: gpd.GeoDataFrame, fmt: str, name: str = "reaches") -> StreamingResponse:
-    if len(gdf) > MAX_SYNC_ROWS:
-        # ---- branch point: CONUS / huge regions go to prebuilt files or async here
-        raise HTTPException(
-            status_code=413,
-            detail=(f"{len(gdf)} records exceeds the {MAX_SYNC_ROWS} sync limit. "
-                    "Use a prebuilt regional download or the async export endpoint."))
     fmt = fmt.lower()
     if fmt == "csv":
         out = gdf.copy()
@@ -199,8 +229,30 @@ def _stream(gdf: gpd.GeoDataFrame, fmt: str, name: str = "reaches") -> Streaming
 
 
 # ------------------------------------------------------------------ endpoints
+def _too_big(err: TooBig, what: str) -> HTTPException:
+    """413 answer that tells the user where to get large areas instead."""
+    return HTTPException(413, {
+        "message": (f"{what} has {err.n:,} records, more than the {MAX_SYNC_ROWS:,} "
+                    "this API returns in one request. Ask for a smaller area (a HUC8 "
+                    "or a polygon), or download the full dataset from Zenodo."),
+        "records": err.n,
+        "limit": MAX_SYNC_ROWS,
+        "full_dataset": ZENODO_URL,
+    })
+
+
 @app.post("/extract")
 def extract(req: ExtractRequest):
+    try:
+        return _extract(req)
+    except TooBig as err:
+        what = {"conus": "All of CONUS", "state": f"State {req.state}",
+                "huc2": f"HUC2 {req.huc2}", "polygon": "This polygon"
+                }.get(req.request_type.lower(), "This request")
+        raise _too_big(err, what)
+
+
+def _extract(req: ExtractRequest):
     ds = _ds(req.dataset)
     _check_format(req.format)
     rt = req.request_type.lower()
@@ -279,7 +331,10 @@ async def extract_shapefile(
         poly = poly.to_crs(DATASET_CRS)    # <- the step that prevents silent empty results
         geom = poly.union_all()            # merge all polygon features into one mask
 
-    gdf = _fetch_by_polygon(ds, geom)
+    try:
+        gdf = _fetch_by_polygon(ds, geom)
+    except TooBig as err:
+        raise _too_big(err, "This polygon")
     if gdf.empty:
         raise HTTPException(404, "No records intersected the uploaded polygon.")
     return _stream(gdf, format, _outname(dataset))

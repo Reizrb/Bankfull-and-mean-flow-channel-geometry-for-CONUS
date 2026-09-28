@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
  && python -c "import duckdb; duckdb.sql('INSTALL httpfs')"
 
 COPY app.py .
+COPY static ./static
 
 ENV PORT=8000
 EXPOSE 8000
