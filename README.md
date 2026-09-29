@@ -6,20 +6,20 @@ Machine-learning estimates of **bankfull and mean-flow channel width and depth**
 about 2.7 million NHDPlusV2.1 river reaches and 28,000 USGS gages across the
 conterminous United States.
 
-This repository has everything from the research to the data service: the code
-used to build and evaluate the models, and the tools to access the results.
+This repository holds the research: the code used to build, evaluate, and apply the
+models. To access the results, use the web page or the tools below.
 
 ## Get the data
 
 | Option | Best for |
 |--------|----------|
 | [**Web page**](https://conus-channel-geometry.onrender.com) | Picking an area on a map and downloading it as CSV, GeoJSON, or shapefile |
-| [**Python package: HydroGeomKit**](DataAPI/client/) | Getting data straight into pandas or GeoPandas |
-| [**API**](DataAPI/) | Scripts in any language (Python, R, command line) |
+| [**HydroGeomKit**](https://github.com/Reizrb/HydroGeomKit) (Python package) | Getting data straight into pandas or GeoPandas |
+| [**HydroGeomAPI**](https://github.com/Reizrb/HydroGeomAPI) | Scripts in any language (Python, R, command line) |
 | [**Full dataset**](https://doi.org/10.5281/zenodo.19208847) | All reaches at once (Zenodo and [HydroShare](https://www.hydroshare.org/resource/1a2e115c212f4f4a80660f94339205e6/)) |
 
 ```python
-# pip install "git+https://github.com/Reizrb/Bankfull-and-mean-flow-channel-geometry-for-CONUS#subdirectory=DataAPI/client"
+# pip install "git+https://github.com/Reizrb/HydroGeomKit"
 from hydrogeomkit import get_channel_geometry
 
 reaches = get_channel_geometry(huc8="03160112")
@@ -29,14 +29,10 @@ reaches = get_channel_geometry(huc8="03160112")
 
 | Folder | Contents |
 |--------|----------|
-| **Model development** | |
 | [DataPreProcessing](DataPreProcessing/) | Preparing and filtering the training data |
 | [ModelDevelopment](ModelDevelopment/) | MLR, RFR, and XGBR models and tuned parameters |
 | [ModelIndependentEvaluation](ModelIndependentEvaluation/) | Independent evaluation of the models |
 | [ModelApplication](ModelApplication/) | Applying the final models to NHDPlusV2.1 reaches |
-| **Data access** | |
-| [DataAPI](DataAPI/) | Web page and API serving the results |
-| [DataAPI/client](DataAPI/client/) | HydroGeomKit, the Python package (`hydrogeomkit`) |
 
 ## Citation
 
@@ -52,6 +48,16 @@ Dataset: https://doi.org/10.5281/zenodo.19208847 (CC-BY-4.0)
 ## License
 
 Code: [MIT](LICENSE). Data: CC-BY-4.0.
+
+## Related repositories
+
+These three repositories work together:
+
+| Repository | What it does |
+|------------|--------------|
+| [Bankfull-and-mean-flow-channel-geometry-for-CONUS](https://github.com/Reizrb/Bankfull-and-mean-flow-channel-geometry-for-CONUS) | The research: model development, evaluation, and the dataset |
+| [HydroGeomKit](https://github.com/Reizrb/HydroGeomKit) | Python package: get the data and compute channel hydraulics |
+| [HydroGeomAPI](https://github.com/Reizrb/HydroGeomAPI) | The web page and API that serve the data |
 
 ---
 
