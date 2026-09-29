@@ -3,9 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "conus-channel-geometry"
-version = "0.1.0"
-description = "Get ML-derived bankfull and mean-flow channel width and depth for NHDPlusV2.1 reaches and USGS gages across CONUS"
+name = "hydrogeomkit"
+version = "0.2.0"
+description = "HydroGeomKit: bankfull and mean-flow channel width and depth for NHDPlusV2.1 reaches and USGS gages across CONUS, plus cross-section hydraulics (area, wetted perimeter, hydraulic radius, discharge)"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
@@ -22,4 +22,4 @@ Paper = "https://doi.org/10.1029/2024WR037997"
 Dataset = "https://doi.org/10.5281/zenodo.19208847"
 
 [tool.setuptools]
-packages = ["conus_channel_geometry"]
+packages = ["hydrogeomkit"]

@@ -1,6 +1,6 @@
-# conus_channel_geometry
+# HydroGeomKit
 
-A small Python package to get machine-learning estimates of **bankfull and
+**HydroGeomKit** (`hydrogeomkit`) is a small Python package to get machine-learning estimates of **bankfull and
 mean-flow channel width and depth** for NHDPlusV2.1 reaches and USGS gages across
 the conterminous United States, straight into pandas or GeoPandas.
 
@@ -22,7 +22,7 @@ pip install geopandas
 ## Use
 
 ```python
-from conus_channel_geometry import get_channel_geometry
+from hydrogeomkit import get_channel_geometry
 
 # All reaches in a HUC8 watershed, as a pandas table
 reaches = get_channel_geometry(huc8="03160112")
@@ -83,7 +83,7 @@ waits up to 10 minutes for large areas (set `timeout=` to change this).
 ## Other options
 
 - `status()` shows how many reaches and gages are available.
-- `base_url=` (or the `CONUS_CHANNEL_GEOMETRY_URL` environment variable) points
+- `base_url=` (or the `HYDROGEOMKIT_URL` environment variable) points
   the package at another copy of the API.
 
 ## Cite

@@ -10,8 +10,9 @@ from typing import Iterable, Optional, Union
 import pandas as pd
 import requests
 
-DEFAULT_URL = os.environ.get("CONUS_CHANNEL_GEOMETRY_URL",
-                             "https://conus-channel-geometry.onrender.com")
+DEFAULT_URL = os.environ.get("HYDROGEOMKIT_URL",
+                             os.environ.get("CONUS_CHANNEL_GEOMETRY_URL",
+                                            "https://conus-channel-geometry.onrender.com"))
 
 # Columns that are codes, not numbers: keep them as text so leading zeros survive.
 _TEXT_COLUMNS = ["site_no", "station_nm", "reachcode", "state", "huc2", "huc8"]
@@ -70,7 +71,7 @@ def get_channel_geometry(
         500,000 records. True: return a GeoDataFrame with the reach lines or gage
         points (needs geopandas), up to 50,000 records.
     base_url : str
-        The API address. Set the ``CONUS_CHANNEL_GEOMETRY_URL`` environment variable
+        The API address. Set the ``HYDROGEOMKIT_URL`` environment variable
         to change the default.
     timeout : float
         Seconds to wait for a response. Large areas can take a minute or more.

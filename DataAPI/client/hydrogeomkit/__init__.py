@@ -1,12 +1,12 @@
 """
-conus_channel_geometry
-======================
+HydroGeomKit (hydrogeomkit)
+===========================
 
 Get machine-learning estimates of bankfull and mean-flow channel width and depth
 for NHDPlusV2.1 reaches and USGS gages across the conterminous United States,
 from the Channel Geometry API (https://conus-channel-geometry.onrender.com).
 
-    >>> from conus_channel_geometry import get_channel_geometry
+    >>> from hydrogeomkit import get_channel_geometry
     >>> reaches = get_channel_geometry(huc8="03160112")
 
 If you use this data, please cite:
@@ -23,6 +23,6 @@ from .api import (
     status,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = ["get_channel_geometry", "status", "ChannelGeometryError", "TooManyRecords",
            "DEFAULT_URL", "__version__"]

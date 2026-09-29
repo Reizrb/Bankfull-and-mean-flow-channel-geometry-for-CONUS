@@ -72,7 +72,7 @@ dataset from Zenodo (links below).
 
 ## Using the Python package
 
-The easiest way to use the data in Python is the `conus_channel_geometry` package
+The easiest way to use the data in Python is the **HydroGeomKit** package (`hydrogeomkit`)
 (in the [client](client/) folder):
 
 ```bash
@@ -80,7 +80,7 @@ pip install "git+https://github.com/Reizrb/Bankfull-and-mean-flow-channel-geomet
 ```
 
 ```python
-from conus_channel_geometry import get_channel_geometry
+from hydrogeomkit import get_channel_geometry
 
 reaches = get_channel_geometry(huc8="03160112")                          # pandas table
 gages = get_channel_geometry(dataset="gage", state="AL", geometry=True)  # GeoDataFrame
@@ -250,7 +250,7 @@ fake reach file.
 | `test_api.py`         | Checks every request type                                      |
 | `requirements.txt`    | Python packages the API needs                                  |
 | `Dockerfile`          | Builds the container used for hosting                          |
-| `client/`             | The `conus_channel_geometry` Python package                    |
+| `client/`             | The HydroGeomKit Python package (`hydrogeomkit`)               |
 
 ## License
 

@@ -1,38 +1,59 @@
 <img src="assets/banner.png" alt="Bankfull and Mean-flow Channel Geometry for CONUS" width="100%">
 
-# Bankfull and Mean-flow Channel Geometry Estimation for CONtiguous United States (CONUS)
+# Bankfull and Mean-flow Channel Geometry for CONUS
 
-This GitHub repository represents the outcomes, datasets, codes, and script of "Bankfull and Mean-flow Channel Geometry Estimation Through Machine Learning  Algorithms Across the CONtiguous United States (CONUS)" research project. 
+Machine-learning estimates of **bankfull and mean-flow channel width and depth** for
+about 2.7 million NHDPlusV2.1 river reaches and 28,000 USGS gages across the
+conterminous United States.
 
-Citation to the corresponding paper: Zarrabi, R., McDermott, R., Erfani, S. M. H., & Cohen, S. (2025). Bankfull and Mean‐Flow channel geometry estimation through machine learning algorithms across the CONtiguous United States (CONUS). Water Resources Research, 61(2). https://doi.org/10.1029/2024wr037997
+This repository has everything from the research to the data service: the code
+used to build and evaluate the models, and the tools to access the results.
 
 ## Get the data
 
-- **Full dataset (latest version):** [Zenodo](https://zenodo.org/records/19208847) (doi:10.5281/zenodo.19208847) and [HydroShare](https://www.hydroshare.org/resource/1a2e115c212f4f4a80660f94339205e6/), CC-BY-4.0
-- **Just the reaches or gages you need:** use the web page and API at **https://conus-channel-geometry.onrender.com**. Select reaches or USGS gages by COMID, site number, state, HUC2, HUC8, or an area on the map, and download them as CSV, GeoJSON, or a shapefile. See the [Data API](DataAPI/) folder for details and code examples.
-
-Quick example in Python:
+| Option | Best for |
+|--------|----------|
+| [**Web page**](https://conus-channel-geometry.onrender.com) | Picking an area on a map and downloading it as CSV, GeoJSON, or shapefile |
+| [**Python package: HydroGeomKit**](DataAPI/client/) | Getting data straight into pandas or GeoPandas |
+| [**API**](DataAPI/) | Scripts in any language (Python, R, command line) |
+| [**Full dataset**](https://doi.org/10.5281/zenodo.19208847) | All reaches at once (Zenodo and [HydroShare](https://www.hydroshare.org/resource/1a2e115c212f4f4a80660f94339205e6/)) |
 
 ```python
-import io, pandas as pd, requests
+# pip install "git+https://github.com/Reizrb/Bankfull-and-mean-flow-channel-geometry-for-CONUS#subdirectory=DataAPI/client"
+from hydrogeomkit import get_channel_geometry
 
-r = requests.post("https://conus-channel-geometry.onrender.com/extract",
-                  json={"request_type": "huc8", "huc8": "03160112", "format": "csv"})
-reaches = pd.read_csv(io.StringIO(r.text), dtype={"reachcode": str, "huc2": str, "huc8": str})
+reaches = get_channel_geometry(huc8="03160112")
 ```
 
-## Repository structure
+## What's in this repository
 
 | Folder | Contents |
 |--------|----------|
+| **Model development** | |
 | [DataPreProcessing](DataPreProcessing/) | Preparing and filtering the training data |
 | [ModelDevelopment](ModelDevelopment/) | MLR, RFR, and XGBR models and tuned parameters |
 | [ModelIndependentEvaluation](ModelIndependentEvaluation/) | Independent evaluation of the models |
 | [ModelApplication](ModelApplication/) | Applying the final models to NHDPlusV2.1 reaches |
-| [DataAPI](DataAPI/) | Web page and API serving the predicted channel geometry |
+| **Data access** | |
+| [DataAPI](DataAPI/) | Web page and API serving the results |
+| [DataAPI/client](DataAPI/client/) | HydroGeomKit, the Python package (`hydrogeomkit`) |
 
+## Citation
 
-![AGU2025_RZ_page-0001 (1)](https://github.com/user-attachments/assets/ac4e0f46-4a39-429e-a2c8-3e2a61426dc7)
-<div align="center">
-    The presented poster for the American Geophysics Union (AGU) 2025, New Orleans, LA, USA.
-</div>
+If you use this data or code, please cite:
+
+Zarrabi, R., McDermott, R., Erfani, S. M. H., & Cohen, S. (2025). Bankfull and
+mean-flow channel geometry estimation through machine learning algorithms across the
+CONtiguous United States (CONUS). *Water Resources Research*, 61(2).
+https://doi.org/10.1029/2024WR037997
+
+Dataset: https://doi.org/10.5281/zenodo.19208847 (CC-BY-4.0)
+
+## License
+
+Code: [MIT](LICENSE). Data: CC-BY-4.0.
+
+---
+
+![AGU2025 poster](https://github.com/user-attachments/assets/ac4e0f46-4a39-429e-a2c8-3e2a61426dc7)
+<p align="center">Poster presented at AGU 2025, New Orleans, LA, USA.</p>
