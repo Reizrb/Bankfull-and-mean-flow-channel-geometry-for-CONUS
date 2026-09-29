@@ -20,3 +20,7 @@ DataAPI/*.zip
 
 # macOS
 .DS_Store
+
+# Python packaging leftovers
+build/
+*.egg-info/

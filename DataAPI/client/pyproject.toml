@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "conus-channel-geometry"
+version = "0.1.0"
+description = "Get ML-derived bankfull and mean-flow channel width and depth for NHDPlusV2.1 reaches and USGS gages across CONUS"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "Reihaneh Zarrabi"}]
+dependencies = ["requests>=2.25", "pandas>=1.3"]
+
+[project.optional-dependencies]
+geo = ["geopandas>=0.12", "shapely>=2.0"]
+
+[project.urls]
+"Web page" = "https://conus-channel-geometry.onrender.com"
+Source = "https://github.com/Reizrb/Bankfull-and-mean-flow-channel-geometry-for-CONUS"
+Paper = "https://doi.org/10.1029/2024WR037997"
+Dataset = "https://doi.org/10.5281/zenodo.19208847"
+
+[tool.setuptools]
+packages = ["conus_channel_geometry"]

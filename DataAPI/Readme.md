@@ -70,6 +70,24 @@ dataset from Zenodo (links below).
 - **Speed:** the service currently runs on a small free server. Most requests take
   a few seconds, and a whole state or HUC2 region can take a minute or more.
 
+## Using the Python package
+
+The easiest way to use the data in Python is the `conus_channel_geometry` package
+(in the [client](client/) folder):
+
+```bash
+pip install "git+https://github.com/Reizrb/Bankfull-and-mean-flow-channel-geometry-for-CONUS#subdirectory=DataAPI/client"
+```
+
+```python
+from conus_channel_geometry import get_channel_geometry
+
+reaches = get_channel_geometry(huc8="03160112")                          # pandas table
+gages = get_channel_geometry(dataset="gage", state="AL", geometry=True)  # GeoDataFrame
+```
+
+See the [client README](client/README.md) for all options.
+
 ## Using the API from code
 
 Send a `POST` request to `/extract` with a JSON body:
@@ -232,6 +250,7 @@ fake reach file.
 | `test_api.py`         | Checks every request type                                      |
 | `requirements.txt`    | Python packages the API needs                                  |
 | `Dockerfile`          | Builds the container used for hosting                          |
+| `client/`             | The `conus_channel_geometry` Python package                    |
 
 ## License
 
