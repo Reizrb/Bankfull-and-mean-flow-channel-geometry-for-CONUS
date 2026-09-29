@@ -62,14 +62,19 @@ def _data_path(filename: str) -> str:
     return f"{REMOTE_BASE.rstrip('/')}/{filename}"
 
 DATASET_CRS = "EPSG:4269"      # NAD83, the NHDPlusV2.1 CRS (both files are built in it)
-MAX_SYNC_ROWS = 50_000         # above this, point users to prebuilt downloads instead
+MAX_SYNC_ROWS = 50_000         # shapefile / GeoJSON (with line shapes): records per request
+MAX_CSV_ROWS = 500_000         # CSV (numbers only, no line shapes): covers every state and HUC2
+
+
+def _limit(fmt: str) -> int:
+    return MAX_CSV_ROWS if (fmt or "csv").lower() == "csv" else MAX_SYNC_ROWS
 ZENODO_URL = "https://zenodo.org/records/19208847"
 
 
 class TooBig(Exception):
-    """Raised before any geometry is loaded when a request is over MAX_SYNC_ROWS."""
-    def __init__(self, n, huc2s):
-        self.n, self.huc2s = n, huc2s
+    """Raised before any geometry is loaded when a request is over the format's limit."""
+    def __init__(self, n, huc2s, limit, fmt):
+        self.n, self.huc2s, self.limit, self.fmt = n, huc2s, limit, fmt
 GEOM_ATTRS = ["bnk_width", "bnk_depth", "mf_width", "mf_depth"]
 
 # One entry per dataset. `id_col` is what request_type="ids" matches against.
@@ -176,30 +181,30 @@ class ExtractRequest(BaseModel):
 
 
 # ------------------------------------------------------------------ query helpers
-def _check_size(ds: dict, where_sql: str, params: list):
+def _check_size(ds: dict, where_sql: str, params: list, fmt: str = "csv"):
     """Count matches first (cheap: no geometry is read) and stop oversized requests
     before they use up the server's memory."""
     where = f" WHERE {where_sql}" if where_sql else ""
     n, huc2s = con().execute(
         f"SELECT count(*), list(DISTINCT huc2 ORDER BY huc2) "
         f"FROM read_parquet('{ds['path']}'){where}", params).fetchone()
-    if n > MAX_SYNC_ROWS:
-        raise TooBig(n, [h for h in huc2s if h])
+    if n > _limit(fmt):
+        raise TooBig(n, [h for h in huc2s if h], _limit(fmt), fmt)
 
 
-def _fetch_by_filter(ds: dict, where_sql: str, params: list) -> tuple:
+def _fetch_by_filter(ds: dict, where_sql: str, params: list, fmt: str = "csv") -> tuple:
     """Check the size, then return the query (WHERE clause + parameters) to export."""
-    _check_size(ds, where_sql, params)
+    _check_size(ds, where_sql, params, fmt)
     return (where_sql, list(params))
 
 
-def _fetch_by_polygon(ds: dict, geom) -> tuple:
+def _fetch_by_polygon(ds: dict, geom, fmt: str = "csv") -> tuple:
     """Bounding-box pre-filter (cheap, uses the precomputed corner columns), then an
     exact intersection test, both done inside DuckDB."""
     minx, miny, maxx, maxy = geom.bounds
     bbox = "minx <= ? AND maxx >= ? AND miny <= ? AND maxy >= ?"
     bparams = [maxx, minx, maxy, miny]
-    _check_size(ds, bbox, bparams)
+    _check_size(ds, bbox, bparams, fmt)
     where = bbox + " AND ST_Intersects(ST_GeomFromWKB(geom_wkb), ST_GeomFromText(?))"
     return (where, bparams + [geom.wkt])
 
@@ -225,7 +230,7 @@ def _stream(ds: dict, query: tuple, fmt: str, name: str = "reaches"):
         if fmt == "csv":
             out = Path(td) / f"{name}.csv"
             n = con().execute(
-                f"COPY (SELECT {cols}, ST_AsText(ST_ReducePrecision(ST_GeomFromWKB(geom_wkb), 0.000001)) AS geometry_wkt {src}) "
+                f"COPY (SELECT {cols} {src}) "
                 f"TO '{out}' (FORMAT CSV, HEADER)", params).fetchone()[0]
             media = "text/csv"
         elif fmt == "geojson":
@@ -260,14 +265,15 @@ def _stream(ds: dict, query: tuple, fmt: str, name: str = "reaches"):
 # ------------------------------------------------------------------ endpoints
 def _too_big(err: TooBig, what: str) -> HTTPException:
     """413 answer that tells the user where to get large areas instead."""
-    return HTTPException(413, {
-        "message": (f"{what} has {err.n:,} records, more than the {MAX_SYNC_ROWS:,} "
-                    "this API returns in one request. Ask for a smaller area (a HUC8 "
-                    "or a polygon), or download the full dataset from Zenodo."),
-        "records": err.n,
-        "limit": MAX_SYNC_ROWS,
-        "full_dataset": ZENODO_URL,
-    })
+    msg = (f"{what} has {err.n:,} records, more than the {err.limit:,} this API returns "
+           f"in one {err.fmt.upper() if err.fmt != 'shapefile' else 'shapefile'} download. ")
+    if err.fmt.lower() != "csv" and err.n <= MAX_CSV_ROWS:
+        msg += ("Choose CSV to get the width and depth values for this whole area "
+                f"(up to {MAX_CSV_ROWS:,} records), or ask for a smaller area for line shapes.")
+    else:
+        msg += "Ask for a smaller area, or download the full dataset from Zenodo."
+    return HTTPException(413, {"message": msg, "records": err.n, "limit": err.limit,
+                               "full_dataset": ZENODO_URL})
 
 
 @app.post("/extract")
@@ -286,7 +292,7 @@ def _extract(req: ExtractRequest):
     _check_format(req.format)
     rt = req.request_type.lower()
     if rt == "conus":
-        gdf = _fetch_by_filter(ds, "", [])
+        gdf = _fetch_by_filter(ds, "", [], req.format)
     elif rt in ("ids", "comids"):
         raw = req.ids or ([str(c) for c in req.comids] if req.comids else None)
         if not raw:
@@ -297,24 +303,24 @@ def _extract(req: ExtractRequest):
             raise HTTPException(400, f"ids for the {req.dataset} dataset must be "
                                      f"{ds['id_type'].__name__} values")
         placeholders = ", ".join("?" * len(ids))
-        gdf = _fetch_by_filter(ds, f"{ds['id_col']} IN ({placeholders})", ids)
+        gdf = _fetch_by_filter(ds, f"{ds['id_col']} IN ({placeholders})", ids, req.format)
     elif rt == "state":
         if not req.state:
             raise HTTPException(400, "state is required for request_type=state")
-        gdf = _fetch_by_filter(ds, "state = ?", [req.state.upper()])
+        gdf = _fetch_by_filter(ds, "state = ?", [req.state.upper()], req.format)
     elif rt == "huc2":
         if not req.huc2:
             raise HTTPException(400, "huc2 is required for request_type=huc2")
-        gdf = _fetch_by_filter(ds, "huc2 = ?", [req.huc2.zfill(2)])
+        gdf = _fetch_by_filter(ds, "huc2 = ?", [req.huc2.zfill(2)], req.format)
     elif rt == "huc8":
         if not req.huc8:
             raise HTTPException(400, "huc8 is required for request_type=huc8")
-        gdf = _fetch_by_filter(ds, "huc8 = ?", [req.huc8.zfill(8)])
+        gdf = _fetch_by_filter(ds, "huc8 = ?", [req.huc8.zfill(8)], req.format)
     elif rt == "polygon":
         if not req.polygon:
             raise HTTPException(400, "polygon (GeoJSON) is required for request_type=polygon")
         geom = _user_polygon_to_dataset_crs(req.polygon)
-        gdf = _fetch_by_polygon(ds, geom)
+        gdf = _fetch_by_polygon(ds, geom, req.format)
     else:
         raise HTTPException(400, f"Unknown request_type '{req.request_type}'")
 
@@ -359,7 +365,7 @@ async def extract_shapefile(
         geom = poly.union_all()            # merge all polygon features into one mask
 
     try:
-        gdf = _fetch_by_polygon(ds, geom)
+        gdf = _fetch_by_polygon(ds, geom, format)
     except TooBig as err:
         raise _too_big(err, "This polygon")
     return _stream(ds, gdf, format, _outname(dataset))

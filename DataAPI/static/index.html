@@ -421,6 +421,7 @@ details { border-top:0; background:#fff; border-radius:16px; padding:14px 16px; 
       <input type="radio" name="format" id="f-shp" value="shapefile">
       <label for="f-shp">Shapefile</label>
     </div>
+    <p class="hint" id="format-hint"></p>
   </fieldset>
 
   <div class="actions">
@@ -532,11 +533,14 @@ function showArea() {
   $("opt-ids").textContent = reach ? "A list of COMIDs" : "A list of USGS site numbers";
   $("ids-hint").textContent = reach ? "NHDPlusV2.1 COMIDs, e.g. 18223451" : "Site numbers, e.g. 02465000. Leading zeros matter.";
   $("huc2-hint").textContent = reach
-    ? "HUC2 regions have hundreds of thousands of reaches, more than one download allows. For a whole region, use the full dataset on Zenodo, or pick HUC8 watersheds."
+    ? "A whole HUC2 region works as CSV. GeoJSON and shapefile are limited to 50,000 reaches, so for line shapes pick a HUC8 or a smaller area."
     : "";
   $("conus-hint").innerHTML = reach
-    ? `All 2.7 million reaches are too many for one download here. Get the complete dataset from <a href="${ZENODO}" target="_blank" rel="noopener" style="color:#2E6A8C">Zenodo</a>.`
+    ? `All 2.7 million reaches are too many for one download here. Get the complete dataset from <a href="${ZENODO}" target="_blank" rel="noopener" style="color:#2E6A8C">Zenodo</a>, or download a state or HUC2 region as CSV.`
     : "All 28,164 gages in one file.";
+  $("format-hint").textContent = format() === "csv"
+    ? "Width and depth values only, no line shapes. Up to 500,000 records per download."
+    : "Includes the " + (reach ? "reach lines" : "gage points") + " for GIS. Up to 50,000 records per download.";
   $("go").disabled = (a === "conus" && reach);
   $("show").hidden = true;
   updateSnippet();
@@ -641,6 +645,7 @@ $("show").addEventListener("click", async () => {
   const btn = $("show"); btn.disabled = true; setStatus("Loading onto the map…", "");
   try {
     const r = await send("geojson");
+    if (r.status === 413) throw new Error("Too many records to show on the map (the limit is 50,000). Try a smaller area, like a HUC8.");
     if (!r.ok) throw new Error(await readError(r));
     const gj = await r.json();
     // draw small streams first so the big rivers sit on top of them
