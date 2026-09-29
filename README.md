@@ -9,7 +9,17 @@ Citation to the corresponding paper: Zarrabi, R., McDermott, R., Erfani, S. M. H
 ## Get the data
 
 - **Full dataset (latest version):** [Zenodo](https://zenodo.org/records/19208847) (doi:10.5281/zenodo.19208847) and [HydroShare](https://www.hydroshare.org/resource/1a2e115c212f4f4a80660f94339205e6/), CC-BY-4.0
-- **Just the reaches or gages you need:** the [Data API](DataAPI/) lets you request channel geometry by COMID, USGS site number, state, HUC2, HUC8, or a polygon, and download it as CSV, GeoJSON, or a shapefile.
+- **Just the reaches or gages you need:** use the web page and API at **https://conus-channel-geometry.onrender.com**. Select reaches or USGS gages by COMID, site number, state, HUC2, HUC8, or an area on the map, and download them as CSV, GeoJSON, or a shapefile. See the [Data API](DataAPI/) folder for details and code examples.
+
+Quick example in Python:
+
+```python
+import io, pandas as pd, requests
+
+r = requests.post("https://conus-channel-geometry.onrender.com/extract",
+                  json={"request_type": "huc8", "huc8": "03160112", "format": "csv"})
+reaches = pd.read_csv(io.StringIO(r.text), dtype={"reachcode": str, "huc2": str, "huc8": str})
+```
 
 ## Repository structure
 
@@ -19,7 +29,7 @@ Citation to the corresponding paper: Zarrabi, R., McDermott, R., Erfani, S. M. H
 | [ModelDevelopment](ModelDevelopment/) | MLR, RFR, and XGBR models and tuned parameters |
 | [ModelIndependentEvaluation](ModelIndependentEvaluation/) | Independent evaluation of the models |
 | [ModelApplication](ModelApplication/) | Applying the final models to NHDPlusV2.1 reaches |
-| [DataAPI](DataAPI/) | Web API serving the predicted channel geometry |
+| [DataAPI](DataAPI/) | Web page and API serving the predicted channel geometry |
 
 
 ![AGU2025_RZ_page-0001 (1)](https://github.com/user-attachments/assets/ac4e0f46-4a39-429e-a2c8-3e2a61426dc7)

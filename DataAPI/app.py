@@ -172,7 +172,7 @@ class ExtractRequest(BaseModel):
     request_type: str = Field(..., description="conus | ids | comids | state | huc2 | huc8 | polygon")
     format: str = Field("csv", description="csv | shapefile | geojson")
     # one of these is used depending on request_type:
-    ids: list[str] | None = Field(None, description="COMIDs (reach) or USGS site numbers (gage)")
+    ids: list[int | str] | None = Field(None, description="COMIDs (reach) or USGS site numbers (gage, as text)")
     comids: list[int] | None = Field(None, description="kept for older clients; same as ids")
     state: str | None = None
     huc2: str | None = None
