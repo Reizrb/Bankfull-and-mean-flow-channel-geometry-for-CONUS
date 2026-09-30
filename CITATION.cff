@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the article below."
+title: "Bankfull and Mean-flow Channel Geometry Estimation for CONUS"
+type: software
+authors:
+  - family-names: Zarrabi
+    given-names: Reihaneh
+    affiliation: "University of Alabama"
+license: MIT
+repository-code: "https://github.com/Reizrb/Bankfull-and-mean-flow-channel-geometry-for-CONUS"
+abstract: "Code for data processing, model development, evaluation, and application of machine-learning models that estimate bankfull and mean-flow channel width and depth across CONUS."
+keywords:
+  - "hydrology"
+  - "channel geometry"
+  - "bankfull"
+  - "machine learning"
+  - "XGBoost"
+  - "NHDPlus"
+references:
+  - type: data
+    title: "Bankfull and mean-flow channel geometry for CONUS"
+    authors:
+      - family-names: Zarrabi
+        given-names: Reihaneh
+    doi: 10.5281/zenodo.19208847
+    url: "https://doi.org/10.5281/zenodo.19208847"
+preferred-citation:
+  type: article
+  title: "Bankfull and mean-flow channel geometry estimation through machine learning algorithms across the CONtiguous United States (CONUS)"
+  authors:
+    - family-names: Zarrabi
+      given-names: Reihaneh
+    - family-names: McDermott
+      given-names: R.
+    - family-names: Erfani
+      given-names: S. M. H.
+    - family-names: Cohen
+      given-names: Sagy
+  journal: "Water Resources Research"
+  volume: 61
+  issue: 2
+  year: 2025
+  doi: 10.1029/2024WR037997
