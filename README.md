@@ -59,9 +59,10 @@ The final dataset contains predicted bankfull and mean-flow width and depth for
 (CC-BY-4.0).
 
 To get the data for specific reaches or areas without downloading the full
-dataset, use the [web page](https://conus-channel-geometry.onrender.com), the
-[HydroGeomKit](https://github.com/Reizrb/HydroGeomKit) Python package, or
-[HydroGeomAPI](https://github.com/Reizrb/HydroGeomAPI).
+dataset, use [HydroGeom](https://github.com/Reizrb/HydroGeom): the
+[web page](https://conus-channel-geometry.onrender.com), the
+[API](https://conus-channel-geometry.onrender.com/docs), or the HydroGeomKit
+Python package (`pip install "git+https://github.com/Reizrb/HydroGeom"`).
 
 ## Citation
 
@@ -77,8 +78,7 @@ Code: [MIT](LICENSE). Data: CC-BY-4.0.
 | Repository | What it does |
 |------------|--------------|
 | [Bankfull-and-mean-flow-channel-geometry-for-CONUS](https://github.com/Reizrb/Bankfull-and-mean-flow-channel-geometry-for-CONUS) | The research: model development, evaluation, and the dataset (this repository) |
-| [HydroGeomKit](https://github.com/Reizrb/HydroGeomKit) | Python package: get the data and compute channel hydraulics |
-| [HydroGeomAPI](https://github.com/Reizrb/HydroGeomAPI) | The web page and API that serve the data |
+| [HydroGeom](https://github.com/Reizrb/HydroGeom) | Tools to get and use the data: the web page (HydroGeomSite), the API (HydroGeomAPI), and the Python package (HydroGeomKit) |
 
 ---
 
