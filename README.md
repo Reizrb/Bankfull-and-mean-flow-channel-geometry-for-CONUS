@@ -71,6 +71,13 @@ Python package (`pip install "git+https://github.com/Reizrb/HydroGeom"`).
 If you use this code or data, please cite the paper above and the dataset
 (doi:10.5281/zenodo.19208847).
 
+## Funding
+
+<table><tr>
+<td width="110"><img src="assets/ciroh_logo.png" alt="CIROH logo" width="100"></td>
+<td>Funding for this project was provided by the National Oceanic &amp; Atmospheric Administration (NOAA), awarded to the Cooperative Institute for Research to Operations in Hydrology (CIROH) through the Cooperative Agreement with The University of Alabama (NA22NWS4320003).</td>
+</tr></table>
+
 ## License
 
 Code: [MIT](LICENSE). Data: CC-BY-4.0.
