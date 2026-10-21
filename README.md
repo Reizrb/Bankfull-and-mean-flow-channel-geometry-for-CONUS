@@ -86,8 +86,10 @@ Code: [MIT](LICENSE). Data: CC-BY-4.0.
 
 | Repository | What it does |
 |------------|--------------|
-| [Bankfull-and-mean-flow-channel-geometry-for-CONUS](https://github.com/Reizrb/Bankfull-and-mean-flow-channel-geometry-for-CONUS) | The research: model development, evaluation, and the dataset (this repository) |
-| [HydroGeom](https://github.com/Reizrb/HydroGeom) | Tools to get and use the data: the web page (HydroGeomSite), the API (HydroGeomAPI), and the Python package (HydroGeomKit) |
+| [Bankfull-and-mean-flow-channel-geometry-for-CONUS](https://github.com/Reizrb/Bankfull-and-mean-flow-channel-geometry-for-CONUS) | ML models and the CONUS bankfull and mean-flow channel geometry dataset (this repository) |
+| [HydroGeom](https://github.com/Reizrb/HydroGeom) | Web page, API, and Python package to get and use the channel geometry |
+| [Bathymetric-Adjustment-of-Rating-Curves-and-Stage-Shift-BARC-SS](https://github.com/Reizrb/Bathymetric-Adjustment-of-Rating-Curves-and-Stage-Shift-BARC-SS) | Adds the channel geometry to OWP HAND-FIM rating curves for flood mapping (BARC, BARC-SS) |
+| [TRoute-Channel-Geometry](https://github.com/Reizrb/TRoute-Channel-Geometry) | Adds the channel geometry to the NWM RouteLink file for T-Route routing |
 
 ---
 
