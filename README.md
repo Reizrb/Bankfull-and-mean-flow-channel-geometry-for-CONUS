@@ -1,5 +1,7 @@
 # Bankfull and Mean-flow Channel Geometry Estimation for CONUS
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23520140.svg)](https://doi.org/10.5281/zenodo.23520140)
+
 This repository contains the data processing, model development, evaluation, and
 application code for:
 
